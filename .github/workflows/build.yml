@@ -1,26 +1,48 @@
-name: Build APK
-   on: [push]
-   jobs:
-     build:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - name: Set up Python
-           uses: actions/setup-python@v4
-           with:
-             python-version: '3.9'
-         - name: Install dependencies
-           run: |
-             sudo apt-get update
-             sudo apt-get install -y zlib1g-dev openjdk-17-jdk
-             pip install buildozer
-         - name: Build APK
-           run: |
-             buildozer init
-             sed -i 's/requirements = .*/requirements = python3,kivy,telethon,pycryptodome,pysocks,asyncio,openssl/' buildozer.spec
-             buildozer -v android debug
-         - name: Upload APK
-           uses: actions/upload-artifact@v3
-           with:
-             name: HaydeChecker-APK
-             path: bin/*.apk
+name: Build HaydeChecker APK
+
+on: 
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          zlib1g-dev \
+          openjdk-17-jdk \
+          unzip
+        pip install buildozer
+    
+    - name: Build APK
+      run: |
+        echo "[app]
+        title = HaydeChecker
+        package.name = haydechecker
+        package.domain = org.hayde
+        source.dir = .
+        version = 1.0
+        requirements = python3,kivy,telethon,pycryptodome,pysocks,asyncio,openssl
+        android.permissions = INTERNET, READ_EXTERNAL_STORAGE
+        android.arch = arm64-v8a" > buildozer.spec
+        
+        buildozer -v android debug
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: HaydeChecker-APK
+        path: bin/*.apk
