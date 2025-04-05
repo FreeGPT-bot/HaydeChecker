@@ -1,9 +1,7 @@
 name: Build HaydeChecker APK
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:  # Только ручной запуск
 
 jobs:
   build:
@@ -13,51 +11,71 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Полная история коммитов
 
-      - name: Set up Python 3.9
+      - name: Debug files
+        run: |
+          ls -la
+          echo "Проверка файлов репозитория:"
+          find . -type f
+
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.9"
 
-      - name: Install system dependencies
+      - name: Install system deps
         run: |
-          sudo apt-get update -qq
+          sudo apt-get update -y
           sudo apt-get install -y \
             zlib1g-dev \
-            python3-dev \
+            python3-pip \
             openjdk-17-jdk \
             unzip \
-            ccache \
-            libncurses5
+            ccache
 
-      - name: Install Buildozer
-        run: pip install buildozer
-
-      - name: Configure Buildozer
+      - name: Create buildozer.spec
         run: |
-          cat << EOF > buildozer.spec
+          cat << 'EOF' > buildozer.spec
           [app]
           title = HaydeChecker
           package.name = haydechecker
           package.domain = org.hayde
           source.dir = .
           version = 1.0
-          requirements = python3==3.9.0, kivy==2.3.0, telethon==1.28.0, pycryptodome==3.18.0, pysocks==1.7.1
-          android.permissions = INTERNET, READ_EXTERNAL_STORAGE
+          requirements = python3==3.9.0, kivy==2.3.0, telethon==1.28.0
+          android.permissions = INTERNET
           android.api = 34
           android.ndk_version = 23b
           android.arch = arm64-v8a
           p4a.branch = develop
           EOF
 
-      - name: Build APK (Debug)
+      - name: Show buildozer.spec
+        run: cat buildozer.spec
+
+      - name: Install Buildozer
+        run: pip install buildozer==1.5.0
+
+      - name: Build APK
         run: |
           buildozer -v android clean
-          buildozer -v android debug
+          buildozer -v android debug 2>&1 | tee build.log
+          echo "Buildozer завершился с кодом $?"
 
-      - name: Upload APK
+      - name: Upload logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HaydeChecker-Debug
-          path: bin/*debug.apk
-          retention-days: 7
+          name: build-logs
+          path: |
+            build.log
+            .buildozer/**/log*
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HaydeChecker-APK
+          path: bin/*.apk
