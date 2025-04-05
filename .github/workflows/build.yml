@@ -1,6 +1,6 @@
 name: Build HaydeChecker APK
 
-on: 
+on:
   push:
     branches: [ main ]
   workflow_dispatch:
@@ -10,39 +10,44 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          zlib1g-dev \
-          openjdk-17-jdk \
-          unzip
-        pip install buildozer
-    
-    - name: Build APK
-      run: |
-        echo "[app]
-        title = HaydeChecker
-        package.name = haydechecker
-        package.domain = org.hayde
-        source.dir = .
-        version = 1.0
-        requirements = python3,kivy,telethon,pycryptodome,pysocks,asyncio,openssl
-        android.permissions = INTERNET, READ_EXTERNAL_STORAGE
-        android.arch = arm64-v8a" > buildozer.spec
-        
-        buildozer -v android debug
-    
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
-      with:
-        name: HaydeChecker-APK
-        path: bin/*.apk
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            zlib1g-dev \
+            openjdk-17-jdk \
+            unzip
+          pip install buildozer
+
+      - name: Configure buildozer
+        run: |
+          echo "[app]
+          title = HaydeChecker
+          package.name = haydechecker
+          package.domain = org.hayde
+          source.dir = .
+          version = 1.0
+          requirements = python3,kivy,telethon,pycryptodome,pysocks,asyncio,openssl
+          android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+          android.arch = arm64-v8a
+          android.api = 34
+          android.ndk = 23b" > buildozer.spec
+
+      - name: Build APK
+        run: |
+          buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HaydeChecker-APK
+          path: bin/*.apk
+          retention-days: 5
