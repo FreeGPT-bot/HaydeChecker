@@ -44,7 +44,7 @@ jobs:
       run: |
         mkdir -p ~/.buildozer/android/platform
         cd ~/.buildozer/android/platform
-        git clone --depth 1 --branch 2023.08.25 https://github.com/kivy/python-for-android.git
+        git clone --depth 1 --branch 2024.1.21 https://github.com/kivy/python-for-android.git
         cd python-for-android
         python -m pip install -e .
 
@@ -62,7 +62,7 @@ jobs:
         android.minapi = 21
         android.ndk_version = 25
         android.archs = arm64-v8a
-        p4a.branch = 2023.08.25
+        p4a.branch = 2024.1.21
         android.strip = True
         android.debug = False" > buildozer.spec
 
