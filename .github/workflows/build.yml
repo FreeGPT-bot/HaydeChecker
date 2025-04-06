@@ -7,46 +7,33 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Используем более старую версию Ubuntu
     timeout-minutes: 60
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.10
+    - name: Set up Python 3.9  # Понижаем версию Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.10"
+        python-version: "3.9"
 
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           zlib1g-dev \
-          openjdk-17-jdk \
+          openjdk-11-jdk \  # Используем JDK 11 вместо 17
           unzip \
           ccache \
-          libncurses6 \
-          git \
-          make \
-          autoconf \
-          automake \
-          libtool
+          libncurses5  # Для Ubuntu 22.04
 
-    - name: Install Buildozer with explicit p4a
+    - name: Install Buildozer and dependencies
       run: |
-        pip install buildozer==1.5.0
-        pip install cython==0.29.36
-        pip install python-for-android==2024.1.21
-
-    - name: Pre-initialize p4a
-      run: |
-        mkdir -p ~/.buildozer/android/platform
-        cd ~/.buildozer/android/platform
-        git clone --depth 1 --branch 2024.1.21 https://github.com/kivy/python-for-android.git
-        cd python-for-android
-        python -m pip install -e .
+        pip install buildozer==1.4.0  # Стабильная версия
+        pip install cython==0.29.33
+        pip install python-for-android==0.11.0  # Проверенная версия
 
     - name: Configure buildozer.spec
       run: |
@@ -56,17 +43,15 @@ jobs:
         package.domain = org.hayde
         source.dir = .
         version = 1.0
-        requirements = python3==3.9.0,kivy==2.2.1,telethon==1.34.0,pycryptodome==3.20.0
+        requirements = python3==3.9.0,kivy==2.1.0,telethon,pycryptodome
         android.permissions = INTERNET, READ_EXTERNAL_STORAGE
-        android.api = 34
+        android.api = 30  # Более старая версия API
         android.minapi = 21
-        android.ndk_version = 25
+        android.ndk_version = 23b  # Проверенная версия NDK
         android.archs = arm64-v8a
-        p4a.branch = 2024.1.21
-        android.strip = True
         android.debug = False" > buildozer.spec
 
-    - name: Build APK (with retry)
+    - name: Build APK
       run: |
         buildozer -v android clean || true
         buildozer -v android debug
