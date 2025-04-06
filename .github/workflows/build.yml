@@ -2,34 +2,37 @@ name: Build HaydeChecker APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.9
+    - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.10"
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           zlib1g-dev \
           openjdk-17-jdk \
           unzip \
-          ccache
+          ccache \
+          libncurses5
 
     - name: Install Buildozer
-      run: pip install buildozer
+      run: |
+        pip install buildozer==1.5.0
+        pip install cython==0.29.36
 
     - name: Configure buildozer.spec
       run: |
@@ -39,13 +42,14 @@ jobs:
         package.domain = org.hayde
         source.dir = .
         version = 1.0
-        requirements = python3==3.9.0,kivy==2.0.0,telethon==1.24.0,pycryptodome
+        requirements = python3==3.9.0,kivy==2.2.1,telethon==1.34.0,pycryptodome==3.20.0
         android.permissions = INTERNET, READ_EXTERNAL_STORAGE
-        android.api = 31
+        android.api = 34
         android.minapi = 21
-        android.ndk_version = 23b
-        android.arch = arm64-v8a
-        p4a.branch = 2023.08.25" > buildozer.spec
+        android.ndk_version = 25b
+        android.archs = arm64-v8a, armeabi-v7a
+        p4a.branch = master
+        android.strip = True" > buildozer.spec
 
     - name: Build APK
       run: |
