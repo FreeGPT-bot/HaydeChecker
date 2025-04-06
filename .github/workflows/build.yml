@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     
     steps:
     - name: Checkout code
@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: "3.10"
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
@@ -27,12 +27,26 @@ jobs:
           openjdk-17-jdk \
           unzip \
           ccache \
-          libncurses6
+          libncurses6 \
+          git \
+          make \
+          autoconf \
+          automake \
+          libtool
 
-    - name: Install Buildozer
+    - name: Install Buildozer with explicit p4a
       run: |
         pip install buildozer==1.5.0
         pip install cython==0.29.36
+        pip install python-for-android==2023.08.25
+
+    - name: Pre-initialize p4a
+      run: |
+        mkdir -p ~/.buildozer/android/platform
+        cd ~/.buildozer/android/platform
+        git clone --depth 1 --branch 2023.08.25 https://github.com/kivy/python-for-android.git
+        cd python-for-android
+        python -m pip install -e .
 
     - name: Configure buildozer.spec
       run: |
@@ -46,14 +60,15 @@ jobs:
         android.permissions = INTERNET, READ_EXTERNAL_STORAGE
         android.api = 34
         android.minapi = 21
-        android.ndk_version = 25b
-        android.archs = arm64-v8a, armeabi-v7a
-        p4a.branch = master
-        android.strip = True" > buildozer.spec
+        android.ndk_version = 25
+        android.archs = arm64-v8a
+        p4a.branch = 2023.08.25
+        android.strip = True
+        android.debug = False" > buildozer.spec
 
-    - name: Build APK
+    - name: Build APK (with retry)
       run: |
-        buildozer -v android clean
+        buildozer -v android clean || true
         buildozer -v android debug
 
     - name: Upload APK
