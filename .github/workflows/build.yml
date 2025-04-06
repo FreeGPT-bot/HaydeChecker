@@ -7,8 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04  # Используем проверенную LTS-версию
-    timeout-minutes: 60
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90  # Увеличиваем время ожидания
 
     steps:
     - name: Checkout code
@@ -19,31 +19,33 @@ jobs:
       with:
         python-version: "3.8"
 
-    - name: Fix Ubuntu repositories
+    - name: Install system dependencies
       run: |
-        sudo sed -i 's/azure.archive.ubuntu.com/archive.ubuntu.com/g' /etc/apt/sources.list
         sudo apt-get update
-
-    - name: Install exact dependencies
-      run: |
         sudo apt-get install -y \
           zlib1g-dev \
           openjdk-8-jdk \
           unzip \
           ccache \
           libncurses5 \
-          build-essential \
-          python3-dev \
-          git
+          wget \
+          ca-certificates
 
-    - name: Install Buildozer with locked versions
+    - name: Pre-download NDK
       run: |
-        python -m pip install --upgrade pip
-        pip install buildozer==1.2.0
-        pip install cython==0.29.21
-        pip install virtualenv
+        mkdir -p ~/.buildozer/android/platform
+        cd ~/.buildozer/android/platform
+        wget -q --show-progress --progress=bar:force https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip -q android-ndk-r21e-linux-x86_64.zip
+        rm android-ndk-r21e-linux-x86_64.zip
+        mv android-ndk-r21e android-ndk
 
-    - name: Configure minimal buildozer.spec
+    - name: Install Buildozer
+      run: |
+        pip install buildozer==1.4.0
+        pip install cython==0.29.21
+
+    - name: Configure buildozer.spec
       run: |
         echo "[app]
         title = HaydeChecker
@@ -51,19 +53,18 @@ jobs:
         package.domain = org.hayde
         source.dir = .
         version = 1.0
-        requirements = python3==3.8.10, kivy==2.0.0, telethon==1.24.0
+        requirements = python3, kivy==2.0.0, telethon
         android.permissions = INTERNET
         android.api = 28
         android.minapi = 21
-        android.ndk_version = 21d  # Автоматически скачается
-        android.arch = arm64-v8a
+        android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk
+        android.ndk_version = 21.1.6352462
+        android.skip_update = True
         " > buildozer.spec
 
-    - name: Build with retries
+    - name: Build APK
       run: |
-        for i in {1..3}; do
-          buildozer -v android clean && break || sleep 10
-        done
+        buildozer -v android clean || true
         buildozer -v android debug
 
     - name: Upload APK
@@ -71,4 +72,4 @@ jobs:
       with:
         name: HaydeChecker-APK
         path: bin/*.apk
-        retention-days: 3
+        retention-days: 7
