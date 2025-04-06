@@ -1,41 +1,65 @@
-name: Build APK
+name: Build HaydeChecker APK
 
-on: [push]
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 90
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: Set up Python 3.8
       uses: actions/setup-python@v4
       with:
         python-version: "3.8"
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y zlib1g-dev openjdk-8-jdk unzip ccache libncurses5 wget
+        sudo apt-get install -y \
+          zlib1g-dev \
+          openjdk-8-jdk \
+          unzip \
+          ccache \
+          libncurses5 \
+          wget
 
-    - name: Setup Android SDK
+    - name: Setup Android SDK (Fixed)
       run: |
-        mkdir -p ~/android-sdk
+        # Clean installation
+        mkdir -p ~/android-sdk/cmdline-tools
         cd ~/android-sdk
+        
+        # Download tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip
-        rm commandlinetools-linux-9477386_latest.zip
-        mkdir -p cmdline-tools/latest
-        mv tools/* cmdline-tools/latest/
-        yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "build-tools;30.0.3" "platform-tools" "platforms;android-28" "ndk;21.4.7075529"
+        unzip -q commandlinetools-linux-9477386_latest.zip -d tmp
+        mv tmp/cmdline-tools ~/android-sdk/cmdline-tools/latest
+        rm -rf tmp commandlinetools-linux-9477386_latest.zip
+        
+        # Install components
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+          --sdk_root=$HOME/android-sdk \
+          "build-tools;30.0.3" \
+          "platform-tools" \
+          "platforms;android-28" \
+          "ndk;21.4.7075529"
+        
+        # Move to final location
+        mkdir -p ~/.buildozer/android/platform
         mv ~/android-sdk ~/.buildozer/android/platform/android-sdk
 
     - name: Install Buildozer
-      run: pip install buildozer==1.4.0 cython==0.29.21
+      run: |
+        pip install buildozer==1.4.0
+        pip install cython==0.29.21
 
-    - name: Build APK
+    - name: Configure buildozer.spec
       run: |
         echo "[app]
         title = HaydeChecker
@@ -47,8 +71,14 @@ jobs:
         android.permissions = INTERNET
         android.api = 28
         android.minapi = 21
+        android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
+        android.ndk_path = $HOME/.buildozer/android/platform/android-sdk/ndk/21.4.7075529
         android.skip_update = True
         " > buildozer.spec
+
+    - name: Build APK
+      run: |
+        buildozer -v android clean || true
         buildozer -v android debug
 
     - name: Upload APK
@@ -56,3 +86,4 @@ jobs:
       with:
         name: HaydeChecker-APK
         path: bin/*.apk
+        retention-days: 7
