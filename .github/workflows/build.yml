@@ -1,7 +1,9 @@
 name: Build HaydeChecker APK
 
 on:
-  workflow_dispatch:  # Только ручной запуск
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -9,73 +11,50 @@ jobs:
     timeout-minutes: 30
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Полная история коммитов
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Debug files
-        run: |
-          ls -la
-          echo "Проверка файлов репозитория:"
-          find . -type f
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          zlib1g-dev \
+          openjdk-17-jdk \
+          unzip \
+          ccache
 
-      - name: Install system deps
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            zlib1g-dev \
-            python3-pip \
-            openjdk-17-jdk \
-            unzip \
-            ccache
+    - name: Install Buildozer
+      run: pip install buildozer
 
-      - name: Create buildozer.spec
-        run: |
-          cat << 'EOF' > buildozer.spec
-          [app]
-          title = HaydeChecker
-          package.name = haydechecker
-          package.domain = org.hayde
-          source.dir = .
-          version = 1.0
-          requirements = python3==3.9.0, kivy==2.3.0, telethon==1.28.0
-          android.permissions = INTERNET
-          android.api = 34
-          android.ndk_version = 23b
-          android.arch = arm64-v8a
-          p4a.branch = develop
-          EOF
+    - name: Configure buildozer.spec
+      run: |
+        echo "[app]
+        title = HaydeChecker
+        package.name = haydechecker
+        package.domain = org.hayde
+        source.dir = .
+        version = 1.0
+        requirements = python3==3.9.0,kivy==2.0.0,telethon==1.24.0,pycryptodome
+        android.permissions = INTERNET, READ_EXTERNAL_STORAGE
+        android.api = 31
+        android.minapi = 21
+        android.ndk_version = 23b
+        android.arch = arm64-v8a
+        p4a.branch = 2023.08.25" > buildozer.spec
 
-      - name: Show buildozer.spec
-        run: cat buildozer.spec
+    - name: Build APK
+      run: |
+        buildozer -v android clean
+        buildozer -v android debug
 
-      - name: Install Buildozer
-        run: pip install buildozer==1.5.0
-
-      - name: Build APK
-        run: |
-          buildozer -v android clean
-          buildozer -v android debug 2>&1 | tee build.log
-          echo "Buildozer завершился с кодом $?"
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            build.log
-            .buildozer/**/log*
-
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HaydeChecker-APK
-          path: bin/*.apk
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: HaydeChecker-APK
+        path: bin/*.apk
+        retention-days: 7
