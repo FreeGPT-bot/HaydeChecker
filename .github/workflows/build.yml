@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    timeout-minutes: 90
 
     steps:
     - name: Checkout code
@@ -31,28 +31,35 @@ jobs:
           wget \
           ca-certificates
 
-    - name: Setup Android SDK (Correct structure)
+    - name: Setup Android SDK (Perfect Structure)
       run: |
-        mkdir -p ~/.buildozer/android/platform/android-sdk
-        cd ~/.buildozer/android/platform
+        # Create clean SDK directory
+        mkdir -p ~/android-sdk
+        cd ~/android-sdk
         
-        # Download and install Command Line Tools to CORRECT location
+        # Download and extract command line tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip -q commandlinetools-linux-8512546_latest.zip -d cmdline-tools
-        mv cmdline-tools/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
-        rm -rf cmdline-tools commandlinetools-linux-8512546_latest.zip
+        unzip -q commandlinetools-linux-8512546_latest.zip
+        rm commandlinetools-linux-8512546_latest.zip
         
-        # Accept licenses and install components
-        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
+        # Create proper cmdline-tools structure
+        mkdir -p cmdline-tools/latest
+        mv cmdline-tools/* cmdline-tools/latest/
+        
+        # Install SDK components
+        yes | cmdline-tools/latest/bin/sdkmanager \
+          --sdk_root=$HOME/android-sdk \
           "build-tools;30.0.3" \
           "platform-tools" \
           "platforms;android-28" \
           "ndk;21.4.7075529"
+        
+        # Move to final location
+        mv ~/android-sdk ~/.buildozer/android/platform/android-sdk
 
-    - name: Verify SDK structure
+    - name: Verify Android SDK
       run: |
-        ls -la ~/.buildozer/android/platform/android-sdk/cmdline-tools
+        ls -la ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
         ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
 
     - name: Install Buildozer
