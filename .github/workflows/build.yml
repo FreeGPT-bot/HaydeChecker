@@ -7,33 +7,33 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Используем более старую версию Ubuntu
-    timeout-minutes: 60
-    
+    runs-on: ubuntu-22.04  # Гарантированно рабочая версия
+    timeout-minutes: 50
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python 3.9  # Понижаем версию Python
+    - name: Set up Python 3.8  # Самая стабильная версия
       uses: actions/setup-python@v4
       with:
-        python-version: "3.9"
+        python-version: "3.8"
 
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           zlib1g-dev \
-          openjdk-11-jdk \  # Используем JDK 11 вместо 17
+          openjdk-8-jdk \  # JDK 8 - самый стабильный вариант
           unzip \
           ccache \
-          libncurses5  # Для Ubuntu 22.04
+          libncurses5
 
-    - name: Install Buildozer and dependencies
+    - name: Install Buildozer
       run: |
-        pip install buildozer==1.4.0  # Стабильная версия
-        pip install cython==0.29.33
-        pip install python-for-android==0.11.0  # Проверенная версия
+        python -m pip install --upgrade pip
+        pip install buildozer==1.3.0  # Проверенная версия
+        pip install cython==0.29.21
 
     - name: Configure buildozer.spec
       run: |
@@ -43,22 +43,23 @@ jobs:
         package.domain = org.hayde
         source.dir = .
         version = 1.0
-        requirements = python3==3.9.0,kivy==2.1.0,telethon,pycryptodome
-        android.permissions = INTERNET, READ_EXTERNAL_STORAGE
-        android.api = 30  # Более старая версия API
+        requirements = python3,kivy==2.0.0,telethon==1.24.0
+        android.permissions = INTERNET
+        android.api = 28  # Android 9 (Pie)
         android.minapi = 21
-        android.ndk_version = 23b  # Проверенная версия NDK
-        android.archs = arm64-v8a
-        android.debug = False" > buildozer.spec
+        android.ndk_version = 21.3.6528147  # Автоматическая версия
+        android.arch = arm64-v8a  # Только 64-bit
+        " > buildozer.spec
 
     - name: Build APK
       run: |
-        buildozer -v android clean || true
-        buildozer -v android debug
+        buildozer -v android clean 2>&1 | tee clean.log
+        buildozer -v android debug 2>&1 | tee build.log
 
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: HaydeChecker-APK
         path: bin/*.apk
-        retention-days: 7
+        retention-days: 3
