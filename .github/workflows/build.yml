@@ -1,73 +1,41 @@
-name: Build HaydeChecker APK
+name: Build APK
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python 3.8
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.8"
 
-    - name: Install system dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          zlib1g-dev \
-          openjdk-8-jdk \
-          unzip \
-          ccache \
-          libncurses5 \
-          wget \
-          ca-certificates
+        sudo apt-get install -y zlib1g-dev openjdk-8-jdk unzip ccache libncurses5 wget
 
-    - name: Setup Android SDK (Perfect Structure)
+    - name: Setup Android SDK
       run: |
-        # Create clean SDK directory
         mkdir -p ~/android-sdk
         cd ~/android-sdk
-        
-        # Download and extract command line tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip -q commandlinetools-linux-8512546_latest.zip
-        rm commandlinetools-linux-8512546_latest.zip
-        
-        # Create proper cmdline-tools structure
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        rm commandlinetools-linux-9477386_latest.zip
         mkdir -p cmdline-tools/latest
-        mv cmdline-tools/* cmdline-tools/latest/
-        
-        # Install SDK components
-        yes | cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$HOME/android-sdk \
-          "build-tools;30.0.3" \
-          "platform-tools" \
-          "platforms;android-28" \
-          "ndk;21.4.7075529"
-        
-        # Move to final location
+        mv tools/* cmdline-tools/latest/
+        yes | cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/android-sdk "build-tools;30.0.3" "platform-tools" "platforms;android-28" "ndk;21.4.7075529"
         mv ~/android-sdk ~/.buildozer/android/platform/android-sdk
 
-    - name: Verify Android SDK
-      run: |
-        ls -la ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
-        ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
-
     - name: Install Buildozer
-      run: |
-        pip install buildozer==1.4.0
-        pip install cython==0.29.21
+      run: pip install buildozer==1.4.0 cython==0.29.21
 
-    - name: Configure buildozer.spec
+    - name: Build APK
       run: |
         echo "[app]
         title = HaydeChecker
@@ -79,14 +47,8 @@ jobs:
         android.permissions = INTERNET
         android.api = 28
         android.minapi = 21
-        android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
-        android.ndk_path = $HOME/.buildozer/android/platform/android-sdk/ndk/21.4.7075529
         android.skip_update = True
         " > buildozer.spec
-
-    - name: Build APK
-      run: |
-        buildozer -v android clean || true
         buildozer -v android debug
 
     - name: Upload APK
@@ -94,4 +56,3 @@ jobs:
       with:
         name: HaydeChecker-APK
         path: bin/*.apk
-        retention-days: 7
