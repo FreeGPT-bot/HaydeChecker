@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
     - name: Checkout code
@@ -28,36 +28,36 @@ jobs:
           unzip \
           ccache \
           libncurses5 \
-          wget
+          wget \
+          git
 
-    - name: Setup Android SDK (Fixed)
+    - name: Pre-install Android SDK and NDK
       run: |
-        # Clean installation
-        mkdir -p ~/android-sdk/cmdline-tools
-        cd ~/android-sdk
-        
-        # Download tools
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip -d tmp
-        mv tmp/cmdline-tools ~/android-sdk/cmdline-tools/latest
-        rm -rf tmp commandlinetools-linux-9477386_latest.zip
-        
-        # Install components
-        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$HOME/android-sdk \
-          "build-tools;30.0.3" \
-          "platform-tools" \
-          "platforms;android-28" \
-          "ndk;21.4.7075529"
-        
-        # Move to final location
         mkdir -p ~/.buildozer/android/platform
-        mv ~/android-sdk ~/.buildozer/android/platform/android-sdk
+        cd ~/.buildozer/android/platform
+        
+        # Установка Android SDK
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip -d cmdline-tools
+        mv cmdline-tools/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+        rm -rf cmdline-tools commandlinetools-linux-9477386_latest.zip
+        
+        # Установка NDK
+        wget -q https://dl.google.com/android/repository/android-ndk-r21e-linux-x86_64.zip
+        unzip -q android-ndk-r21e-linux-x86_64.zip
+        rm android-ndk-r21e-linux-x86_64.zip
+
+    - name: Install python-for-android manually
+      run: |
+        mkdir -p ~/.buildozer/android/platform/python-for-android
+        git clone -b 2023.08.25 --depth 1 https://github.com/kivy/python-for-android.git ~/.buildozer/android/platform/python-for-android
+        cd ~/.buildozer/android/platform/python-for-android
+        python -m pip install -e .
 
     - name: Install Buildozer
       run: |
-        pip install buildozer==1.4.0
-        pip install cython==0.29.21
+        python -m pip install buildozer==1.5.0
+        python -m pip install cython==0.29.33
 
     - name: Configure buildozer.spec
       run: |
@@ -71,9 +71,9 @@ jobs:
         android.permissions = INTERNET
         android.api = 28
         android.minapi = 21
-        android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
-        android.ndk_path = $HOME/.buildozer/android/platform/android-sdk/ndk/21.4.7075529
-        android.skip_update = True
+        android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
+        android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r21e
+        p4a.branch = 2023.08.25
         " > buildozer.spec
 
     - name: Build APK
