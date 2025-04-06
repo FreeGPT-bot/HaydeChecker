@@ -31,37 +31,44 @@ jobs:
           wget \
           ca-certificates
 
-    - name: Setup Android SDK (Fixed)
+    - name: Setup Android SDK (Fixed structure)
       run: |
-        # Создаем всю структуру директорий заранее
-        mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+        # Create full SDK structure
+        mkdir -p ~/.buildozer/android/platform/android-sdk
         cd ~/.buildozer/android/platform
         
-        # Скачиваем и распаковываем tools прямо в целевую директорию
+        # Download and install Command Line Tools
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-        unzip -q commandlinetools-linux-8512546_latest.zip -d tmp_tools
-        mv tmp_tools/cmdline-tools/* ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/
-        rm -rf tmp_tools commandlinetools-linux-8512546_latest.zip
+        unzip -q commandlinetools-linux-8512546_latest.zip -d cmdline-tools
+        mv cmdline-tools/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools
+        rm -rf cmdline-tools commandlinetools-linux-8512546_latest.zip
         
-        # Устанавливаем компоненты
-        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+        # Install required components using new path
+        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/bin/sdkmanager \
           --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
           "build-tools;30.0.3" \
           "platform-tools" \
           "platforms;android-28" \
-          "ndk;21.4.7075529"
+          "ndk;21.4.7075529" \
+          "cmdline-tools;latest"
 
-    - name: Verify Android tools
+    - name: Verify SDK installation
       run: |
-        ls -la ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/
-        ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
+        ls -la ~/.buildozer/android/platform/android-sdk
+        ~/.buildozer/android/platform/android-sdk/cmdline-tools/bin/sdkmanager --list_installed
 
-    - name: Install Buildozer
+    - name: Install Buildozer with dependencies
       run: |
         pip install buildozer==1.4.0
         pip install cython==0.29.21
+        pip install python-for-android==2020.06.02  # Стабильная версия
 
-    - name: Configure buildozer.spec
+    - name: Pre-create p4a directory
+      run: |
+        mkdir -p ~/.buildozer/android/platform/python-for-android
+        git clone -b 2020.06.02 --depth 1 https://github.com/kivy/python-for-android.git ~/.buildozer/android/platform/python-for-android
+
+    - name: Configure buildozer.spec (Fixed)
       run: |
         echo "[app]
         title = HaydeChecker
@@ -73,17 +80,19 @@ jobs:
         android.permissions = INTERNET
         android.api = 28
         android.minapi = 21
-        android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
-        android.ndk_path = $HOME/.buildozer/android/platform/android-sdk/ndk/21.4.7075529
+        android.sdk_path = /home/runner/.buildozer/android/platform/android-sdk
+        android.ndk_path = /home/runner/.buildozer/android/platform/android-sdk/ndk/21.4.7075529
         android.skip_update = True
+        p4a.branch = 2020.06.02
         " > buildozer.spec
 
-    - name: Build APK
+    - name: Build APK (with debug)
       run: |
-        buildozer -v android clean || true
-        buildozer -v android debug
+        buildozer -v android clean 2>&1 | tee clean.log
+        buildozer -v android debug 2>&1 | tee build.log
 
     - name: Upload APK
+      if: success()
       uses: actions/upload-artifact@v4
       with:
         name: HaydeChecker-APK
